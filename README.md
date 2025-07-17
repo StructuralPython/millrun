@@ -152,3 +152,10 @@ Because of my own personal use cases, it is more efficient for me to use **1.** 
 However, this method becomes inefficient if you have MANY notebooks and only 1-3 variations. In that case, you would probably prefer the method **2.**. It is still faster than single-process execution (like you get )
 
 If you need this use case then feel free to raise an issue and/or contribute a PR to implement it as an option for execution.
+
+
+## Troubleshooting
+
+There seems to be an un-planned-for behaviour (by me) with the parallel execution where if there is an error in the execution process, that iteration is simply skipped. I don't have any `try`/`except` in the code that causes this. 
+
+So, if you are finding that execution seems to happen "too quickly" or you have missing files, try executing your run in single-process mode as a Python library and see if you get any errors. Then correct and re-run in CLI mode.

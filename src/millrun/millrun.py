@@ -2,6 +2,8 @@ import pathlib
 import json
 from typing import Optional, Any
 import papermill as pm
+import functools as ft
+from concurrent.futures import ProcessPoolExecutor
 
 
 def execute_batch(
@@ -13,6 +15,7 @@ def execute_batch(
     recursive: bool = False,
     exclude_glob_pattern: Optional[str] = None,
     include_glob_pattern: Optional[str] = None,
+    multiprocessing: bool = False,
     **kwargs,
 ) -> list[pathlib.Path] | None:
     """
@@ -86,20 +89,14 @@ def execute_batch(
         output_dir.mkdir(exist_ok=True, parents=True)
 
     if notebook_filename is not None:
-        for notebook_params in bulk_params_list:
-            output_name = get_output_name(
-                notebook_filename, 
-                output_prepend_components, 
-                output_append_components,
-                notebook_params
-            )
-            notebook_file = notebook_dir_or_file
-            pm.execute_notebook(
-                notebook_dir / notebook_file,
-                output_path=output_dir / output_name,
-                parameters=notebook_params,
-                **kwargs
-            )
+        execute_notebooks(
+            notebook_dir / notebook_filename,
+            bulk_params_list,
+            output_prepend_components,
+            output_append_components,
+            output_dir,
+            multiprocessing
+        )
     else:
         glob_method = notebook_dir.glob
         if recursive:
@@ -117,22 +114,14 @@ def execute_batch(
         notebook_paths = included_paths - excluded_paths
 
         for notebook_path in notebook_paths:
-            print(f"{notebook_path=}")
-            for notebook_params in bulk_params_list:
-                output_name_template = get_output_name(
-                    notebook_path.name, 
-                    output_prepend_components, 
-                    output_append_components,
-                    notebook_params
-                )
-                output_name = output_name_template.format(nb=notebook_params)
-                notebook_file = notebook_dir_or_file
-                pm.execute_notebook(
-                    notebook_path,
-                    output_path=output_dir / output_name,
-                    parameters=notebook_params,
-                    **kwargs
-                )
+            execute_notebooks(
+                notebook_path,
+                bulk_params_list,
+                output_prepend_components,
+                output_append_components,
+                output_dir,
+                multiprocessing
+            )
 
 def check_unequal_value_lengths(bulk_params: dict[str, list]) -> bool | dict:
     """
@@ -185,3 +174,54 @@ def get_output_name(
     append_str = "-".join(appends)
     notebook_filename = pathlib.Path(notebook_filename)
     return "-".join([elem for elem in [prepend_str, notebook_filename.stem, append_str] if elem]) + notebook_filename.suffix
+
+
+def execute_notebooks(
+    notebook_filename: pathlib.Path,
+    bulk_params_list: dict[str, Any],
+    output_prepend_components: list[str],
+    output_append_components: list[str],
+    output_dir: pathlib.Path,
+    multiprocessing: bool = False,
+    **kwargs,
+):
+    mp_execute_notebook = ft.partial(
+        execute_notebook,
+        notebook_filename=notebook_filename,
+        output_prepend_components=output_prepend_components,
+        output_append_components=output_append_components,
+        output_dir=output_dir,
+    )
+    # print(mp_execute_notebook(notebook_params=bulk_params_list))
+    if multiprocessing:
+        with ProcessPoolExecutor() as executor:
+            for result in executor.map(mp_execute_notebook, bulk_params_list):
+                pass
+    else:
+        for result in map(mp_execute_notebook, bulk_params_list):
+            pass
+
+
+
+def execute_notebook(
+    notebook_params: dict,
+    notebook_filename: pathlib.Path,
+    output_prepend_components: list[str],
+    output_append_components: list[str],
+    output_dir: pathlib.Path,
+    **kwargs,
+):
+    print(notebook_filename)
+    output_name = get_output_name(
+        notebook_filename, 
+        output_prepend_components, 
+        output_append_components,
+        notebook_params
+    )
+    pm.execute_notebook(
+        notebook_filename,
+        output_path=output_dir / output_name,
+        parameters=notebook_params,
+        progress_bar=True,
+        **kwargs
+    )

@@ -6,9 +6,6 @@ import pathlib
 import typer
 from .millrun import execute_batch
 
-DATA_STORE_FILE = pathlib.Path(__file__).parents[0] / "DATA_STORE.json"
-ROW_SELECTIONS: list[int] = []
-DATA_STORE: dict = {}
 
 def _parse_json(filepath: str) -> dict:
     with open(filepath, 'r') as file:
@@ -26,12 +23,13 @@ app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
     help=APP_INTRO,
+    # pretty_exceptions_enable=False,
+    pretty_exceptions_show_locals=False
 )
-
 
 @app.command(
     name='run',
-    help="PROOFExecutes a notebook or directory of notebooks using the provided bulk parameters JSON file",
+    help="Executes a notebook or directory of notebooks using the provided bulk parameters JSON file",
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
 )
 def run(
@@ -71,20 +69,18 @@ def run(
         output_dir = pathlib.Path(output_dir)
     else:
         output_dir = pathlib.Path.cwd()
-    try:
-        execute_batch(
-            notebook_dir_or_file,
-            params,
-            output_dir,
-            prepend,
-            append,
-            # recursive,
-            # exclude_glob_pattern,
-            # include_glob_pattern,
-            # **kwargs
-        )
-    except Exception as e:
-        print(f"Error! {e.msg}")
+    execute_batch(
+        notebook_dir_or_file,
+        params,
+        output_dir,
+        prepend,
+        append,
+        recursive,
+        exclude_glob_pattern,
+        include_glob_pattern,
+        multiprocessing=True
+        # **kwargs
+    )
 
 
 if __name__ == "__main__":

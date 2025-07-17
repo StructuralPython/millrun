@@ -4,7 +4,7 @@ from typing_extensions import Annotated
 import pathlib
 
 import typer
-from .millrun import execute_batch
+from .millrun import execute_run
 
 
 def _parse_json(filepath: str) -> dict:
@@ -69,7 +69,7 @@ def run(
         output_dir = pathlib.Path(output_dir)
     else:
         output_dir = pathlib.Path.cwd()
-    execute_batch(
+    execute_run(
         notebook_dir_or_file,
         params,
         output_dir,

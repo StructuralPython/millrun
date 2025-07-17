@@ -9,7 +9,7 @@ from rich.progress import Progress, BarColumn, TimeRemainingColumn, TimeElapsedC
 
 
 
-def execute_batch(
+def execute_run(
     notebook_dir_or_file: pathlib.Path | str,
     bulk_params: list | dict,
     output_dir: Optional[pathlib.Path | str] = None,
@@ -90,7 +90,6 @@ def execute_batch(
         output_dir = notebook_dir
     if not output_dir.exists():
         output_dir.mkdir(exist_ok=True, parents=True)
-
     if notebook_filename is not None:
         execute_notebooks(
             notebook_dir / notebook_filename,
@@ -98,7 +97,8 @@ def execute_batch(
             output_prepend_components,
             output_append_components,
             output_dir,
-            use_multiprocessing
+            use_multiprocessing,
+            **kwargs
         )
     else:
         glob_method = notebook_dir.glob
@@ -115,8 +115,8 @@ def execute_batch(
         included_paths = set(glob_method(glob_pattern))
 
         notebook_paths = sorted(included_paths - excluded_paths)
-
         for notebook_path in notebook_paths:
+
             execute_notebooks(
                 notebook_path,
                 bulk_params_list,
@@ -124,10 +124,8 @@ def execute_batch(
                 output_append_components,
                 output_dir,
                 use_multiprocessing,
-            )
-            # Multiprocessing approach inspired by 
-            # https://www.deanmontgomery.com/2022/03/24/rich-progress-and-multiprocessing/
-            
+                **kwargs
+            )            
 
 
 
@@ -161,35 +159,6 @@ def convert_bulk_params_to_list(bulk_params: dict[str, list]):
             inner_acc.update({parameter_name: parameter_values[idx]})
         bulk_params_list.append(inner_acc)
     return bulk_params_list
-
-
-def get_output_name(
-    notebook_filename: str,
-    output_prepend_components: list[str] | None,
-    output_append_components: list[str] | None,
-    notebook_params: dict[str, Any]
-) -> str:
-    """
-    Returns the output name given the included components.
-    """
-    if output_prepend_components is None:
-        output_prepend_components = []
-    if output_append_components is None:
-        output_append_components = []
-    prepends = [notebook_params[comp] for comp in output_prepend_components]
-    appends = [notebook_params[comp] for comp in output_append_components]
-    prepend_str = "-".join(prepends)
-    append_str = "-".join(appends)
-    notebook_filename = pathlib.Path(notebook_filename)
-    return "-".join([elem for elem in [prepend_str, notebook_filename.stem, append_str] if elem]) + notebook_filename.suffix
-
-                                        # notebook_path,
-                                        # bulk_params_list,
-                                        # output_prepend_components,
-                                        # output_append_components,
-                                        # output_dir,
-                                        # _progress, 
-                                        # task_id
 
 
 def execute_notebooks(
@@ -229,6 +198,8 @@ def execute_notebooks(
             TimeElapsedColumn(),
             refresh_per_second=1,  # bit slower updates
         ) as progress:
+            # Multiprocessing approach inspired by 
+            # https://www.deanmontgomery.com/2022/03/24/rich-progress-and-multiprocessing/
             futures = []  # keep track of the jobs
             with multiprocessing.Manager() as manager:
                 _progress = manager.dict()
@@ -275,7 +246,8 @@ def execute_notebook(
         notebook_filename, 
         output_prepend_components, 
         output_append_components,
-        notebook_params
+        notebook_params,
+        current_iteration
     )
     pm.execute_notebook(
         notebook_filename,
@@ -286,4 +258,27 @@ def execute_notebook(
         **kwargs
     )
     if _progress is not None:
-        _progress[_task_id] = {"progress": current_iteration / total_variations, "total": total_variations}    
+        _progress[_task_id] = {"progress": current_iteration, "total": total_variations}    
+
+
+def get_output_name(
+    notebook_filename: str,
+    output_prepend_components: list[str] | None,
+    output_append_components: list[str] | None,
+    notebook_params: dict[str, Any],
+    current_index: int
+) -> str:
+    """
+    Returns the output name given the included components.
+    """
+    if output_prepend_components is None:
+        output_prepend_components = [str(current_index)]
+    if output_append_components is None:
+        output_append_components = []
+    prepends = [notebook_params.get(comp, comp) for comp in output_prepend_components]
+    appends = [notebook_params.get(comp, comp) for comp in output_append_components]
+    prepend_str = "-".join(prepends)
+    append_str = "-".join(appends)
+    notebook_filename = pathlib.Path(notebook_filename)
+    output_name = "-".join([elem for elem in [prepend_str, notebook_filename.stem, append_str] if elem]) + notebook_filename.suffix
+    return output_name

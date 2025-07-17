@@ -78,7 +78,7 @@ def run(
         recursive,
         exclude_glob_pattern,
         include_glob_pattern,
-        multiprocessing=True
+        use_multiprocessing=True
         # **kwargs
     )
 

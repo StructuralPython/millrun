@@ -638,6 +638,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "papermill" },
+    { name = "rich" },
     { name = "typer" },
 ]
 
@@ -649,6 +650,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "papermill", specifier = ">=2.6.0" },
+    { name = "rich", specifier = ">=14.0.0" },
     { name = "typer", specifier = ">=0.16.0" },
 ]
 

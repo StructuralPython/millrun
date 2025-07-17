@@ -3,7 +3,10 @@ import json
 from typing import Optional, Any
 import papermill as pm
 import functools as ft
+import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
+from rich.progress import Progress, BarColumn, TimeRemainingColumn, TimeElapsedColumn
+
 
 
 def execute_batch(
@@ -15,7 +18,7 @@ def execute_batch(
     recursive: bool = False,
     exclude_glob_pattern: Optional[str] = None,
     include_glob_pattern: Optional[str] = None,
-    multiprocessing: bool = False,
+    use_multiprocessing: bool = False,
     **kwargs,
 ) -> list[pathlib.Path] | None:
     """
@@ -95,7 +98,7 @@ def execute_batch(
             output_prepend_components,
             output_append_components,
             output_dir,
-            multiprocessing
+            use_multiprocessing
         )
     else:
         glob_method = notebook_dir.glob
@@ -111,7 +114,7 @@ def execute_batch(
             glob_pattern = "*.ipynb"
         included_paths = set(glob_method(glob_pattern))
 
-        notebook_paths = included_paths - excluded_paths
+        notebook_paths = sorted(included_paths - excluded_paths)
 
         for notebook_path in notebook_paths:
             execute_notebooks(
@@ -120,8 +123,13 @@ def execute_batch(
                 output_prepend_components,
                 output_append_components,
                 output_dir,
-                multiprocessing
+                use_multiprocessing,
             )
+            # Multiprocessing approach inspired by 
+            # https://www.deanmontgomery.com/2022/03/24/rich-progress-and-multiprocessing/
+            
+
+
 
 def check_unequal_value_lengths(bulk_params: dict[str, list]) -> bool | dict:
     """
@@ -175,43 +183,94 @@ def get_output_name(
     notebook_filename = pathlib.Path(notebook_filename)
     return "-".join([elem for elem in [prepend_str, notebook_filename.stem, append_str] if elem]) + notebook_filename.suffix
 
+                                        # notebook_path,
+                                        # bulk_params_list,
+                                        # output_prepend_components,
+                                        # output_append_components,
+                                        # output_dir,
+                                        # _progress, 
+                                        # task_id
+
 
 def execute_notebooks(
-    notebook_filename: pathlib.Path,
+    notebook_path: pathlib.Path,
     bulk_params_list: dict[str, Any],
     output_prepend_components: list[str],
     output_append_components: list[str],
     output_dir: pathlib.Path,
-    multiprocessing: bool = False,
-    **kwargs,
+    use_multiprocessing: bool, 
+    **kwargs
 ):
-    mp_execute_notebook = ft.partial(
-        execute_notebook,
-        notebook_filename=notebook_filename,
-        output_prepend_components=output_prepend_components,
-        output_append_components=output_append_components,
-        output_dir=output_dir,
-    )
-    # print(mp_execute_notebook(notebook_params=bulk_params_list))
-    if multiprocessing:
-        with ProcessPoolExecutor() as executor:
-            for result in executor.map(mp_execute_notebook, bulk_params_list):
-                pass
+    total_variations = len(bulk_params_list)
+    if not use_multiprocessing:
+        with Progress(
+            "[progress.description]{task.description}",
+            BarColumn(),
+            "[progress.percentage]{task.percentage:>3.0f}%",
+            TimeElapsedColumn(),
+            refresh_per_second=1,  # bit slower updates
+        ) as progress:
+            task_id = progress.add_task(notebook_path.name, total=total_variations)
+            for idx, notebook_params in (list(enumerate(bulk_params_list))):
+                execute_notebook(
+                    notebook_filename=notebook_path,
+                    notebook_params=notebook_params,
+                    output_prepend_components=output_prepend_components,
+                    output_append_components=output_append_components,
+                    output_dir=output_dir,
+                    **kwargs,
+                )
+                progress.update(task_id, completed=idx + 2)
     else:
-        for result in map(mp_execute_notebook, bulk_params_list):
-            pass
+        with Progress(
+            "[progress.description]{task.description}",
+            BarColumn(),
+            "[progress.percentage]{task.percentage:>3.0f}%",
+            TimeElapsedColumn(),
+            refresh_per_second=1,  # bit slower updates
+        ) as progress:
+            futures = []  # keep track of the jobs
+            with multiprocessing.Manager() as manager:
+                _progress = manager.dict()
+                overall_progress_task = progress.add_task(f"{notebook_path.name}", visible=True, total=total_variations)
+                with ProcessPoolExecutor() as executor:
+                    for idx, notebook_params in enumerate(bulk_params_list):
+                        futures.append(
+                            executor.submit(
+                                execute_notebook, 
+                                notebook_path,
+                                notebook_params,
+                                output_prepend_components,
+                                output_append_components,
+                                output_dir,
+                                total_variations,
+                                idx,
+                                _progress,
+                                overall_progress_task
+                            )
+                        )
 
+                    # monitor the progress:
+                    while (n_finished := sum([future.done() for future in futures])) < len(
+                        futures
+                    ):
+                        progress.update(
+                            overall_progress_task, completed=n_finished + 1
+                        )
 
 
 def execute_notebook(
-    notebook_params: dict,
     notebook_filename: pathlib.Path,
+    notebook_params: dict,
     output_prepend_components: list[str],
     output_append_components: list[str],
     output_dir: pathlib.Path,
+    total_variations: Optional[int] = None,
+    current_iteration: Optional[int] = None,
+    _progress: Optional[dict] = None,
+    _task_id: Optional[str] = None,
     **kwargs,
 ):
-    print(notebook_filename)
     output_name = get_output_name(
         notebook_filename, 
         output_prepend_components, 
@@ -222,6 +281,9 @@ def execute_notebook(
         notebook_filename,
         output_path=output_dir / output_name,
         parameters=notebook_params,
-        progress_bar=True,
+        progress_bar=False,
+        cwd=str(notebook_filename.parent),
         **kwargs
     )
+    if _progress is not None:
+        _progress[_task_id] = {"progress": current_iteration / total_variations, "total": total_variations}    

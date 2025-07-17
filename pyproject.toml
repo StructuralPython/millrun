@@ -9,11 +9,17 @@ authors = [
 requires-python = ">=3.10"
 dependencies = [
     "papermill>=2.6.0",
+    "typer>=0.16.0",
 ]
 
 [project.scripts]
-millrun = "millrun:main"
+millrun = "millrun.cli:app"
 
 [build-system]
 requires = ["flit_core >=3.2,<4"]
 build-backend = "flit_core.buildapi"
+
+[dependency-groups]
+dev = [
+    "ipykernel>=6.29.5",
+]

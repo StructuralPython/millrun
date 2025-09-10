@@ -9,6 +9,7 @@ requires-python = ">=3.10"
 dependencies = [
     "papermill>=2.6.0",
     "rich",
+    "ruamel-yaml>=0.18.15",
     "typer>=0.16.0",
 ]
 
@@ -21,5 +22,7 @@ build-backend = "flit_core.buildapi"
 
 [dependency-groups]
 dev = [
+    "black>=25.1.0",
     "ipykernel>=6.29.5",
+    "pytest>=8.4.2",
 ]

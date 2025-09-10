@@ -140,6 +140,38 @@ Where each notebook given to millrun will execute against each dictionary in the
 This format is offered as a convenience format. Internally, it is converted into "Format 1" prior to execution.
 
 
+## CLI Profile execution
+
+As of v0.2.0, `millrun` allows the creation of a "profiles" yaml file which prevents the need for typing really long commands on the command line, especially if, for a particular project, the commands are always going to be the same.
+
+YAML format:
+
+The format basically describes the kwargs required to execute the command.
+
+The top level keys can be arbitrarily named but they represent one command execution.
+The values underneath each top level key are the kwargs of the command.
+
+The only required values are `notebook_dir_or_file` and `notebook_params`. All other params are optional.
+
+```yaml
+notebook1: # This is the name of the profile. A profile is equal to one command on the command line
+  notebook_dir_or_file: ./notebook1/notebook1.ipynb # Req'd
+  notebook_params: ./notebook1/notebook1_params.json # Req'd
+  output_dir: ./notebook1/output # Optional
+  prepend: # Optional
+    - name
+    - design
+  append: # Optional
+    - executed
+
+notebook2: # This profile will be executed immediately after the first profile. It's like running the command again.
+  notebook_dir_or_file: ./notebook2
+  notebook_params: ./notebook2/notebook2_params.json
+  output_dir: ./notebook2/output
+  prepend:
+    - tester
+```
+
 ## CLI parallel execution
 
 Since millrun iterates over two dimensions (each notebook and then dict of parameters in the list), there are two ways of parellelizing: 
@@ -152,7 +184,6 @@ Because of my own personal use cases, it is more efficient for me to use **1.** 
 However, this method becomes inefficient if you have MANY notebooks and only 1-3 variations. In that case, you would probably prefer the method **2.**. It is still faster than single-process execution (like you get )
 
 If you need this use case then feel free to raise an issue and/or contribute a PR to implement it as an option for execution.
-
 
 ## Troubleshooting
 

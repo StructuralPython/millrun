@@ -114,11 +114,11 @@ def execute_run(
     if "working_directory" in kwargs:
         notebook_dir_or_file = pathlib.Path(kwargs['working_directory']) / notebook_dir_or_file
         output_dir = pathlib.Path(kwargs['working_directory']) / output_dir
+
     if isinstance(notebook_params, (list, dict)):
         notebook_params_list = validate_notebook_params(notebook_params)
     elif isinstance(notebook_params, (str, pathlib.Path)):
         if "working_directory" in kwargs:
-            print("HERE")
             notebook_params = pathlib.Path(kwargs['working_directory']) / notebook_params
         params_data = _parse_json(notebook_params)
         notebook_params_list = validate_notebook_params(params_data)

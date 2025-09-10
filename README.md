@@ -49,7 +49,7 @@ millrun --help
 │ *    notebook_dir_or_file      TEXT  Path to a notebook file or a directory containing notebooks.   │
 │                                      [default: None]                                                │
 │                                      [required]                                                     │
-│ *    params                    TEXT  JSON file that contains parameters for notebook execution. Can │
+│ *    notebook_params           TEXT  JSON file that contains parameters for notebook execution. Can │
 │                                      either be a 'list of dict' or 'dict of list'.                  │
 │                                      [default: None]                                                │
 │                                      [required]                                                     │

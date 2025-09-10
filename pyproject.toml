@@ -1,7 +1,6 @@
 [project]
 name = "millrun"
-version = "0.1.0"
-description = "Add your description here"
+dynamic=['version', 'description']
 readme = "README.md"
 authors = [
     { name = "Connor Ferster", email = "connor@structuralpython.com" }

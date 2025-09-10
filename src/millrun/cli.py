@@ -27,33 +27,27 @@ app = typer.Typer(
 
 @app.command(
     name="run",
+    no_args_is_help=True,
     help="Executes a notebook or directory of notebooks using the provided bulk parameters JSON file",
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
 )
 def run(
+    ctx: typer.Context,
     notebook_dir_or_file: Annotated[
-        Optional[str],
+        str,
         typer.Argument(
             help="Path to a notebook file or a directory containing notebooks.",
         ),
-    ] = None,
+    ],
     notebook_params: Annotated[
-        Optional[str],
+        str,
         typer.Argument(
             help=(
                 "JSON file that contains parameters for notebook execution. "
                 "Can either be a 'list of dict' or 'dict of list'."
             ),
         ),
-    ] = None,
-    profile: Annotated[
-        Optional[str],
-        typer.Argument(
-            help=(
-                "A millrun YAML profile file that specifies the notebook_dir_or_file and notebook_params (along with additional options) instead of providing them directly."
-            ),
-        ),
-    ] = None,
+    ],
     output_dir: Annotated[
         Optional[str],
         typer.Option(
@@ -89,18 +83,14 @@ def run(
     exclude_glob_pattern: Optional[str] = None,
     include_glob_pattern: Optional[str] = None,
 ):
-    if output_dir is not None:
-        output_dir = pathlib.Path(output_dir)
-    else:
-        output_dir = pathlib.Path.cwd()
+    if ctx.invoked_subcommand is None:
+        if output_dir is not None:
+            output_dir = pathlib.Path(output_dir)
+        else:
+            output_dir = pathlib.Path.cwd()
 
-    # Automated profile execution
-    if profile is not None:
-        profile_file = pathlib.Path.cwd() / pathlib.Path(profile)
-        execute_profile(profile_file)
+        # Typical execution
 
-    # Typical execution
-    elif None not in [notebook_dir_or_file, notebook_params]:
         execute_run(
             notebook_dir_or_file,
             notebook_params,
@@ -112,8 +102,17 @@ def run(
             include_glob_pattern,
             use_multiprocessing=True,
             # **kwargs
-        )
+            )
 
+
+@app.command(
+    name="profile",
+    help="Run a bulk millrun execution running against a profile YAML file",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def profile_execution(profile_filepath: str):
+    profile_file = pathlib.Path.cwd() / pathlib.Path(profile_filepath)
+    execute_profile(profile_file)
 
 if __name__ == "__main__":
     app()
